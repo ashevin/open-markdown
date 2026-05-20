@@ -20,6 +20,8 @@ import type {
 } from '@shared/types';
 import type { PluginThemeDeclaration } from '../../themes/types';
 import type MarkdownIt from 'markdown-it';
+import type { PreviewablePlugin } from '../types/preview';
+import type { MarkdownSlice } from '../../renderer/services/MarkdownSlicer';
 
 /**
  * Options for the MermaidPlugin
@@ -34,7 +36,7 @@ export interface MermaidOptions extends PluginOptions {
 /**
  * Mermaid diagram rendering plugin
  */
-export class MermaidPlugin implements MarkdownPlugin {
+export class MermaidPlugin implements MarkdownPlugin, PreviewablePlugin {
   metadata: PluginMetadata = {
     id: BUILTIN_PLUGINS.MERMAID,
     name: 'Mermaid Diagrams',
@@ -598,6 +600,52 @@ export class MermaidPlugin implements MarkdownPlugin {
     const base64 = btoa(String.fromCharCode(...compressed));
 
     return `https://mermaid.live/edit#pako:${base64}`;
+  }
+
+  matchesSlice(slice: MarkdownSlice): boolean {
+    if (slice.type !== 'code') return false;
+    const firstLine = slice.raw.trimStart().split('\n', 1)[0] ?? '';
+    return /^(?:```|~~~)mermaid\b/.test(firstLine);
+  }
+
+  extractSource(slice: MarkdownSlice): string {
+    const lines = slice.raw.split('\n');
+    let start = 0;
+    let end = lines.length;
+    // Strip opening fence (``` or ~~~ followed by "mermaid").
+    if (lines[0] && /^(?:```|~~~)mermaid\b/.test(lines[0].trimStart())) {
+      start = 1;
+    }
+    // Strip closing fence (``` or ~~~ on its own).
+    const lastLine = lines[lines.length - 1]?.trimEnd();
+    if (lastLine === '```' || lastLine === '~~~') {
+      end = lines.length - 1;
+    }
+    return lines.slice(start, end).join('\n');
+  }
+
+  async renderPreview(
+    source: string,
+    target: HTMLElement,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!this.mermaid) return { ok: false, error: 'Mermaid not initialised' };
+    try {
+      const id = `mermaid-preview-${this.diagramCounter++}`;
+      const { svg } = await this.mermaid.render(id, source);
+      target.replaceChildren();
+      target.insertAdjacentHTML('afterbegin', svg);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  applySourceToRaw(slice: MarkdownSlice, source: string): string {
+    const firstLine = slice.raw.trimStart().split('\n', 1)[0] ?? '';
+    const match = firstLine.match(/^(```|~~~)(.*)$/);
+    const fence = match?.[1] ?? '```';
+    const info = match?.[2] ?? 'mermaid';
+    return fence + info + '\n' + source + '\n' + fence;
   }
 
   destroy(): void {

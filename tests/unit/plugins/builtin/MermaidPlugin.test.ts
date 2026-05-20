@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * MermaidPlugin unit tests
  */
@@ -8,6 +9,7 @@ import {
 import { MarkdownRenderer } from '@plugins/core/MarkdownRenderer';
 import { BUILTIN_PLUGINS } from '@shared/constants';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { MarkdownSlice } from '@renderer/services/MarkdownSlicer';
 
 // Mock mermaid module
 vi.mock('mermaid', () => ({
@@ -18,6 +20,17 @@ vi.mock('mermaid', () => ({
 }));
 
 describe('MermaidPlugin', () => {
+  function slice(partial: Partial<MarkdownSlice>): MarkdownSlice {
+    return {
+      index: 0,
+      type: 'code',
+      raw: '',
+      startLine: 0,
+      endLine: 0,
+      ...partial,
+    };
+  }
+
   let plugin: MermaidPlugin;
   let renderer: MarkdownRenderer;
 
@@ -298,6 +311,122 @@ Some text below.
       expect(result).toContain('Diagram</h1>');
       expect(result).toContain('mermaid-container');
       expect(result).toContain('Some text below');
+    });
+  });
+
+  describe('matchesSlice', () => {
+    it('returns true for a code slice with a ```mermaid opening fence', () => {
+      expect(plugin.matchesSlice(slice({ raw: '```mermaid\nA --> B\n```' }))).toBe(true);
+    });
+
+    it('returns true when the mermaid fence has an info-string suffix', () => {
+      expect(plugin.matchesSlice(slice({ raw: '```mermaid theme=dark\nA --> B\n```' }))).toBe(true);
+    });
+
+    it('returns false for a code slice in another language', () => {
+      expect(plugin.matchesSlice(slice({ raw: '```js\nconsole.log(1);\n```' }))).toBe(false);
+    });
+
+    it('returns false for non-code slice types', () => {
+      expect(plugin.matchesSlice(slice({ type: 'paragraph', raw: 'mermaid' }))).toBe(false);
+    });
+
+    it('returns false when the slice has no opening fence', () => {
+      expect(plugin.matchesSlice(slice({ raw: 'graph TD\nA --> B' }))).toBe(false);
+    });
+
+    it('returns true for tilde-fenced mermaid blocks', () => {
+      expect(plugin.matchesSlice(slice({ raw: '~~~mermaid\nA --> B\n~~~' }))).toBe(true);
+    });
+  });
+
+  describe('extractSource', () => {
+    it('strips opening ```mermaid fence and closing ``` fence', () => {
+      const s = slice({ raw: '```mermaid\ngraph TD\nA --> B\n```' });
+      expect(plugin.extractSource(s)).toBe('graph TD\nA --> B');
+    });
+
+    it('strips opening fence with info-string suffix', () => {
+      const s = slice({ raw: '```mermaid theme=dark\ngraph TD\nA --> B\n```' });
+      expect(plugin.extractSource(s)).toBe('graph TD\nA --> B');
+    });
+
+    it('strips tilde fences (opening and closing)', () => {
+      const s = slice({ raw: '~~~mermaid\ngraph TD\nA --> B\n~~~' });
+      expect(plugin.extractSource(s)).toBe('graph TD\nA --> B');
+    });
+
+    it('preserves blank lines and trailing whitespace inside the content', () => {
+      const s = slice({ raw: '```mermaid\ngraph TD\n\n  A --> B\n```' });
+      expect(plugin.extractSource(s)).toBe('graph TD\n\n  A --> B');
+    });
+
+    it('returns the raw unchanged when there are no fences', () => {
+      const s = slice({ raw: 'graph TD\nA --> B' });
+      expect(plugin.extractSource(s)).toBe('graph TD\nA --> B');
+    });
+
+    it('strips only the opening fence when the closing fence is missing', () => {
+      const s = slice({ raw: '```mermaid\ngraph TD\nA --> B' });
+      expect(plugin.extractSource(s)).toBe('graph TD\nA --> B');
+    });
+  });
+
+  describe('applySourceToRaw', () => {
+    it("re-wraps source with the slice's original opening info-string", () => {
+      const s = slice({ raw: '```mermaid\nold\n```' });
+      expect(plugin.applySourceToRaw(s, 'graph TD\nA --> B')).toBe(
+        '```mermaid\ngraph TD\nA --> B\n```',
+      );
+    });
+
+    it('preserves an info-string suffix on the opening fence', () => {
+      const s = slice({ raw: '```mermaid theme=dark\nold\n```' });
+      expect(plugin.applySourceToRaw(s, 'graph TD\nA --> B')).toBe(
+        '```mermaid theme=dark\ngraph TD\nA --> B\n```',
+      );
+    });
+
+    it('preserves tilde fences', () => {
+      const s = slice({ raw: '~~~mermaid\nold\n~~~' });
+      expect(plugin.applySourceToRaw(s, 'graph TD\nA --> B')).toBe(
+        '~~~mermaid\ngraph TD\nA --> B\n~~~',
+      );
+    });
+
+    it('falls back to ```mermaid when slice.raw has no recognisable opening fence', () => {
+      const s = slice({ raw: 'no fence' });
+      expect(plugin.applySourceToRaw(s, 'graph TD')).toBe('```mermaid\ngraph TD\n```');
+    });
+  });
+
+  describe('renderPreview', () => {
+    it('replaces target contents with rendered SVG on success', async () => {
+      const target = document.createElement('div');
+      target.textContent = 'placeholder';
+      const result = await plugin.renderPreview('graph TD\nA --> B', target);
+      expect(result).toEqual({ ok: true });
+      expect(target.children.length).toBe(1);
+      expect(target.children[0]!.tagName.toLowerCase()).toBe('svg');
+      expect(target.textContent).toBe('Mock SVG');
+    });
+
+    it('leaves target untouched and returns the error on failure', async () => {
+      const mermaid = (await import('mermaid')).default;
+      vi.mocked(mermaid.render).mockRejectedValueOnce(new Error('Parse error'));
+      const target = document.createElement('div');
+      target.textContent = 'previous good preview';
+      const result = await plugin.renderPreview('bogus', target);
+      expect(result).toEqual({ ok: false, error: 'Parse error' });
+      expect(target.textContent).toBe('previous good preview');
+    });
+
+    it('returns an error when the mermaid library is not initialised', async () => {
+      const uninit = new MermaidPlugin();
+      const target = document.createElement('div');
+      const result = await uninit.renderPreview('graph TD', target);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toMatch(/not initialised/i);
     });
   });
 });
