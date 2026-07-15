@@ -11,14 +11,16 @@ import { pathToFileURL } from 'node:url';
 import { ASSET_PROTOCOL_SCHEME, ASSET_PROTOCOL_HOST } from '@shared/constants';
 
 /**
- * Resolve an image reference against the markdown file that contains it.
+ * Resolve a document reference to an absolute filesystem path.
  *
  * @param baseFilePath - Absolute path to the markdown file being rendered.
- * @param ref - The raw `src`/`srcset` reference from the document.
- * @returns An `om-asset:` URL for local files, or `null` when the reference
- *   should be left untouched (already a URL, protocol-relative, or empty).
+ * @param ref - The raw reference from the document (e.g. `./other.md`,
+ *   `images/logo.svg`, `/abs/path/file.md`).
+ * @returns The absolute path on disk, or `null` when the reference is not a
+ *   local file (already a URL, protocol-relative, in-document anchor, or
+ *   empty). Query strings and fragments are stripped.
  */
-export function resolveAssetUrl(baseFilePath: string, ref: string): string | null {
+export function resolveLocalPath(baseFilePath: string, ref: string): string | null {
   if (!baseFilePath || !ref) {
     return null;
   }
@@ -35,7 +37,7 @@ export function resolveAssetUrl(baseFilePath: string, ref: string): string | nul
     return null;
   }
 
-  // Pure in-document anchors are not assets.
+  // Pure in-document anchors are not local files.
   if (trimmed.startsWith('#')) {
     return null;
   }
@@ -53,9 +55,24 @@ export function resolveAssetUrl(baseFilePath: string, ref: string): string | nul
     decoded = cleaned;
   }
 
-  const resolved = path.isAbsolute(decoded)
+  return path.isAbsolute(decoded)
     ? decoded
     : path.resolve(path.dirname(baseFilePath), decoded);
+}
+
+/**
+ * Resolve an image reference against the markdown file that contains it.
+ *
+ * @param baseFilePath - Absolute path to the markdown file being rendered.
+ * @param ref - The raw `src`/`srcset` reference from the document.
+ * @returns An `om-asset:` URL for local files, or `null` when the reference
+ *   should be left untouched (already a URL, protocol-relative, or empty).
+ */
+export function resolveAssetUrl(baseFilePath: string, ref: string): string | null {
+  const resolved = resolveLocalPath(baseFilePath, ref);
+  if (!resolved) {
+    return null;
+  }
 
   // Embed the (already percent-encoded) file path under a fixed host. A bare
   // `om-asset:///path` URL is mangled by Chromium's standard-scheme parser,

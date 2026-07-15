@@ -56,6 +56,49 @@ export class GithubFlavoredPlugin implements MarkdownPlugin {
 
     // Add task list support
     this.addTaskLists(md);
+
+    // Add GitHub-style ids to headings so in-document anchors work
+    this.addHeadingAnchors(md);
+  }
+
+  /**
+   * Assign GitHub-style slug ids to headings (e.g. "TextField API" ->
+   * "textfield-api") so that in-document links like [foo](#textfield-api)
+   * resolve. Duplicate slugs get a numeric suffix, matching GitHub.
+   */
+  private addHeadingAnchors(md: MarkdownIt): void {
+    md.core.ruler.push('heading_anchors', (state) => {
+      const usedSlugs = new Map<string, number>();
+      const tokens = state.tokens;
+
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (!token || token.type !== 'heading_open') continue;
+
+        const inline = tokens[i + 1];
+        if (!inline || inline.type !== 'inline') continue;
+
+        const text = (inline.children ?? [])
+          .filter((t) => t.type === 'text' || t.type === 'code_inline')
+          .map((t) => t.content)
+          .join('');
+
+        let slug = text
+          .trim()
+          .toLowerCase()
+          .replace(/[^\w\- ]+/g, '')
+          .replace(/\s+/g, '-');
+        if (!slug) continue;
+
+        const count = usedSlugs.get(slug) ?? 0;
+        usedSlugs.set(slug, count + 1);
+        if (count > 0) {
+          slug = `${slug}-${count}`;
+        }
+
+        token.attrSet('id', slug);
+      }
+    });
   }
 
   /**

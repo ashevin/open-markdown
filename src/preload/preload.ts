@@ -5,7 +5,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 import { IPC_CHANNELS } from '@shared/types/api';
-import { resolveAssetUrl } from './assetResolver';
+import { resolveAssetUrl, resolveLocalPath } from './assetResolver';
 
 import type {
   ElectronAPI,
@@ -338,6 +338,10 @@ const electronAPI: ElectronAPI = {
   assets: {
     resolve: (baseFilePath: string, ref: string): string | null => {
       return resolveAssetUrl(baseFilePath, ref);
+    },
+
+    resolvePath: (baseFilePath: string, ref: string): string | null => {
+      return resolveLocalPath(baseFilePath, ref);
     },
   },
 

@@ -9,7 +9,7 @@ import {
   createMermaidPlugin,
   MermaidPlugin,
 } from '@plugins/index';
-import { BUILTIN_PLUGINS } from '@shared/constants';
+import { BUILTIN_PLUGINS, MARKDOWN_EXTENSIONS } from '@shared/constants';
 import { Toast } from './Toast';
 
 import { EditModeController, createEditModeController } from './EditModeController';
@@ -49,6 +49,9 @@ export class MarkdownViewer {
   private toast: Toast;
   private editModeController: EditModeController | null = null;
   private isEditMode = false;
+  private onOpenLocalFile:
+    | ((filePath: string, fragment: string | null) => void)
+    | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -338,11 +341,57 @@ export class MarkdownViewer {
       if (!(anchor instanceof HTMLAnchorElement)) return;
 
       const href = anchor.getAttribute('href');
-      if (!href || !this.isExternalUrl(href)) return;
+      if (!href) return;
 
+      // In-document anchor links: scroll to the target heading
+      if (href.startsWith('#')) {
+        e.preventDefault();
+        this.scrollToHeading(decodeURIComponent(href.slice(1)));
+        return;
+      }
+
+      if (this.isExternalUrl(href)) {
+        e.preventDefault();
+        void window.electronAPI.shell.openExternal(href);
+        return;
+      }
+
+      // Anything else is a local reference. Default navigation would replace
+      // the whole app page (blanking it back to the welcome screen), so it is
+      // always prevented; markdown files are opened in the viewer instead.
       e.preventDefault();
-      void window.electronAPI.shell.openExternal(href);
+      this.openLocalLink(href);
     });
+  }
+
+  /**
+   * Open a link to a local markdown file in the viewer, resolving relative
+   * references against the current document's location
+   */
+  private openLocalLink(href: string): void {
+    const basePath = this.state.filePath;
+    if (!basePath || !this.onOpenLocalFile) return;
+
+    const resolved = window.electronAPI.assets.resolvePath(basePath, href);
+    if (!resolved) return;
+
+    const ext = resolved.slice(resolved.lastIndexOf('.')).toLowerCase();
+    if (!(MARKDOWN_EXTENSIONS as readonly string[]).includes(ext)) return;
+
+    const hashIndex = href.indexOf('#');
+    const fragment =
+      hashIndex >= 0 ? decodeURIComponent(href.slice(hashIndex + 1)) : null;
+
+    this.onOpenLocalFile(resolved, fragment);
+  }
+
+  /**
+   * Set the callback invoked when a link to a local markdown file is clicked
+   */
+  setOnOpenLocalFile(
+    callback: (filePath: string, fragment: string | null) => void
+  ): void {
+    this.onOpenLocalFile = callback;
   }
 
   /**
