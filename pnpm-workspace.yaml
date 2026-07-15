@@ -1,0 +1,8 @@
+allowBuilds:
+  electron: true
+  esbuild: true
+  fs-xattr: true
+  macos-alias: true
+nodeLinker: hoisted
+executionEnv:
+  nodeVersion: 22.17.0
