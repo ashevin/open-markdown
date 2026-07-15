@@ -320,6 +320,14 @@ class App {
       },
     });
 
+    this.markdownViewer.setOnOpenLocalFile((filePath, fragment) => {
+      void this.loadFile(filePath).then(() => {
+        if (fragment) {
+          this.markdownViewer?.scrollToHeading(fragment);
+        }
+      });
+    });
+
     this.dropZone.setOnFileDrop((filePath) => {
       void this.handleFileDrop(filePath);
     });

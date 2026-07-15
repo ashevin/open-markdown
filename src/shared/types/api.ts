@@ -282,6 +282,13 @@ export interface AssetsAPI {
    * otherwise should be left untouched.
    */
   resolve: (baseFilePath: string, ref: string) => string | null;
+
+  /**
+   * Resolve a document reference (e.g. a link to another markdown file) to an
+   * absolute filesystem path. Returns `null` when the reference is not a
+   * local file (already a URL or an in-document anchor).
+   */
+  resolvePath: (baseFilePath: string, ref: string) => string | null;
 }
 
 /**
