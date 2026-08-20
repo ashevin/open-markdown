@@ -136,6 +136,13 @@ export const DEFAULT_CORE_PREFERENCES: CorePreferences = {
     editor: 'none',
     customCommand: '',
   },
+  googleDocs: {
+    useCustomCredentials: false,
+    customClientId: '',
+  },
+  experimental: {
+    googleDocsSync: false,
+  },
 };
 
 /**

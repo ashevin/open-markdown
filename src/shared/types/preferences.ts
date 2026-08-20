@@ -115,6 +115,13 @@ export interface CorePreferences {
     autoSaveDelay: number;
   };
   externalEditor: ExternalEditorPreferences;
+  googleDocs: {
+    useCustomCredentials: boolean;
+    customClientId: string;
+  };
+  experimental: {
+    googleDocsSync: boolean;
+  };
 }
 
 /**

@@ -1,7 +1,7 @@
 /**
  * Main process entry point
  */
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 
 import { registerAllHandlers } from './ipc/handlers';
@@ -14,6 +14,7 @@ import { getPreferencesService } from './services/PreferencesService';
 import { getRecentFilesService } from './services/RecentFilesService';
 import { getWindowManager } from './window/WindowManager';
 import { getFileService } from './services/FileService';
+import { getGoogleDocsLinkStore } from '@main/services/GoogleDocsLinkStore';
 import { IPC_CHANNELS } from '@shared/types';
 import { MARKDOWN_EXTENSIONS } from '@shared/constants';
 
@@ -115,6 +116,8 @@ async function initialize(): Promise<void> {
   // PreferencesService is the single source of truth for theme mode preference.
   await getPreferencesService().initialize();
   await getRecentFilesService().initialize();
+  await getGoogleDocsLinkStore().initialize();
+  // GoogleAuthService initializes lazily on first use (avoids keychain prompt at startup)
 
   // Serve local image assets referenced by markdown documents
   registerAssetProtocolHandler();
@@ -187,9 +190,15 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 
-// Security: Prevent new window creation from web content
+// Security: Deny in-app new windows, but open https/http links in the
+// user's default browser via the OS. This lets renderer-side <a target="_blank">
+// links (e.g. GitHub issues link in Preferences) work without broadening the
+// renderer's privileges.
 app.on('web-contents-created', (_event, contents) => {
-  contents.setWindowOpenHandler(() => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      void shell.openExternal(url);
+    }
     return { action: 'deny' };
   });
 });
