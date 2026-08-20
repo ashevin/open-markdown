@@ -262,6 +262,14 @@ function addSpacingAfterTables(elements: DocsElement[]): DocsElement[] {
 
   for (let i = 0; i < elements.length; i++) {
     const element = elements[i]!;
+
+    // insertTable always writes a newline before the table, which shows up as
+    // a blank paragraph. After a heading that is one gap too many, since the
+    // heading already carries space-after.
+    if (element.type === 'table' && elements[i - 1]?.type === 'heading') {
+      element.suppressLeadingBlank = true;
+    }
+
     spaced.push(element);
 
     if (element.type === 'table' && elements[i + 1]?.type === 'paragraph') {

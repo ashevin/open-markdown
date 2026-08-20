@@ -12,7 +12,7 @@ import {
   getUsableWidthPt,
 } from '@main/services/GoogleDocsSyncService';
 import type { DocsBatchUpdateRequest } from '@main/services/GoogleDocsService';
-import type { GDocsApiDocument } from '@shared/types/google-docs';
+import type { DocsElement, GDocsApiDocument } from '@shared/types/google-docs';
 import { convertMarkdownToDocs } from '@main/services/MarkdownToDocsConverter';
 
 vi.mock('electron', () => ({
@@ -146,5 +146,41 @@ describe('spacing after tables', () => {
     const tables = convertMarkdownToDocs(`${table}\n\nOne.\n\n${table}\n\nTwo.\n`)
       .elements.filter((e) => e.type === 'table');
     expect(tables).toHaveLength(2);
+  });
+});
+
+describe('blank line before a table', () => {
+  const table = ['| A | B |', '| --- | --- |', '| 1 | 2 |'].join('\n');
+  const tableEl = (md: string): DocsElement =>
+    convertMarkdownToDocs(md).elements.find((e) => e.type === 'table')!;
+
+  it('is suppressed when a heading comes first', () => {
+    // Docs always writes a newline before a table; after a heading that is one
+    // gap too many, since the heading already carries space-after.
+    expect(tableEl(`## Heading\n\n${table}\n`).suppressLeadingBlank).toBe(true);
+    expect(tableEl(`# Title\n\n${table}\n`).suppressLeadingBlank).toBe(true);
+  });
+
+  it('is kept after body text, where it separates the two', () => {
+    expect(tableEl(`Some prose.\n\n${table}\n`).suppressLeadingBlank).toBeUndefined();
+  });
+
+  it('is kept for a table that opens the document', () => {
+    expect(tableEl(`${table}\n`).suppressLeadingBlank).toBeUndefined();
+  });
+
+  it('is kept after another table', () => {
+    const tables = convertMarkdownToDocs(`${table}\n\n${table}\n`).elements
+      .filter((e) => e.type === 'table');
+    expect(tables[1]!.suppressLeadingBlank).toBeUndefined();
+  });
+
+  it('applies per table, not once per document', () => {
+    const els = convertMarkdownToDocs(
+      `## One\n\n${table}\n\nProse.\n\n${table}\n`,
+    ).elements.filter((e) => e.type === 'table');
+
+    expect(els[0]!.suppressLeadingBlank).toBe(true);
+    expect(els[1]!.suppressLeadingBlank).toBeUndefined();
   });
 });

@@ -155,6 +155,11 @@ export interface DocsElement {
   rows?: DocsTextRun[][][];
   /** Relative column widths measured in the app's view, if available. */
   columnWidths?: number[];
+  /**
+   * Drop the blank paragraph Docs inserts before a table. Set when a heading
+   * precedes it, where the heading's own spacing already separates the two.
+   */
+  suppressLeadingBlank?: boolean;
   imageBase64?: string;
   imageAlt?: string;
   imageLink?: string;

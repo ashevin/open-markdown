@@ -35,6 +35,8 @@ export interface PendingTable {
   rows: DocsTextRun[][][];
   /** Relative column widths measured in the app's view, if available. */
   columnWidths?: number[];
+  /** Drop the blank paragraph Docs inserts before the table. */
+  suppressLeadingBlank?: boolean;
 }
 
 export interface BuildResult {
@@ -296,6 +298,7 @@ function buildTable(ctx: BuildContext, element: DocsElement): void {
     placeholderText,
     rows,
     ...(element.columnWidths && { columnWidths: element.columnWidths }),
+    ...(element.suppressLeadingBlank && { suppressLeadingBlank: true }),
   });
   ctx.index += placeholderText.length;
 }

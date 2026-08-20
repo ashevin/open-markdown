@@ -659,6 +659,37 @@ export class GoogleDocsSyncService {
    * Phase 2: Find table placeholders in the doc, replace each with a real table,
    * then populate cells.
    */
+
+  /**
+   * Remove the blank paragraph Docs puts before a table.
+   *
+   * insertTable always writes a newline ahead of the table, so the table starts
+   * one index after the requested location. This runs after the cells and
+   * widths, because deleting the newline shifts every index inside the table.
+   *
+   * Failure is tolerated: the spacing is cosmetic and must not take down a
+   * sync that has otherwise succeeded.
+   */
+  private async removeLeadingBlankParagraph(
+    docId: string,
+    tableStartIndex: number,
+  ): Promise<void> {
+    // Index 1 is the start of the body; there is nothing before it to remove.
+    if (tableStartIndex <= 1) return;
+
+    try {
+      await this.docsService.batchUpdate(docId, [
+        {
+          deleteContentRange: {
+            range: { startIndex: tableStartIndex - 1, endIndex: tableStartIndex },
+          },
+        },
+      ]);
+    } catch (error) {
+      console.warn('[SyncService] Could not remove the blank line before a table:', error);
+    }
+  }
+
   private async populateTables(
     docId: string,
     pendingTables: PendingTable[],
@@ -723,6 +754,10 @@ export class GoogleDocsSyncService {
       const allRequests = [...cellRequests, ...widthRequests];
       if (allRequests.length > 0) {
         await this.docsService.batchUpdate(docId, allRequests);
+      }
+
+      if (table.suppressLeadingBlank && tableEl.startIndex !== undefined) {
+        await this.removeLeadingBlankParagraph(docId, tableEl.startIndex);
       }
     }
   }
@@ -923,6 +958,7 @@ export class GoogleDocsSyncService {
       placeholderText: '', // not used for direct table insertion
       rows,
       ...(modelTable.columnWidths && { columnWidths: modelTable.columnWidths }),
+      ...(modelTable.suppressLeadingBlank && { suppressLeadingBlank: true }),
     };
     await this.populateTableAtIndex(docId, insertAt, pendingTable);
   }
@@ -956,6 +992,10 @@ export class GoogleDocsSyncService {
     const allRequests = [...cellRequests, ...widthRequests];
     if (allRequests.length > 0) {
       await this.docsService.batchUpdate(docId, allRequests);
+    }
+
+    if (table.suppressLeadingBlank && tableEl.startIndex !== undefined) {
+      await this.removeLeadingBlankParagraph(docId, tableEl.startIndex);
     }
   }
 
