@@ -60,4 +60,47 @@ test.describe('Select All', () => {
     expect(selection).not.toContain('Open');
     expect(selection).not.toContain('Edit');
   });
+
+  test('does not select find bar chrome or the search term', async ({ mainWindow }) => {
+    await mainWindow.waitForSelector('.find-bar', { state: 'attached', timeout: 5000 });
+
+    const selection = await mainWindow.evaluate((html) => {
+      const viewer = document.getElementById('markdown-viewer');
+      const content = document.getElementById('markdown-content');
+      const findBar = document.querySelector('.find-bar');
+      const input = document.querySelector<HTMLInputElement>('.find-bar-input');
+      if (!viewer || !content || !findBar || !input) throw new Error('elements not found');
+
+      viewer.classList.remove('hidden');
+      document.getElementById('drop-zone')?.classList.add('hidden');
+      content.innerHTML = html;
+
+      // The find bar sits inside the viewer, so an open one is in range of
+      // Select All along with whatever has been typed into it.
+      findBar.classList.add('find-bar-visible');
+      input.value = 'needle';
+
+      window.getSelection()?.removeAllRanges();
+      document.execCommand('selectAll');
+
+      return window.getSelection()?.toString() ?? '';
+    }, SAMPLE_MARKDOWN_HTML);
+
+    expect(selection).toContain('Body paragraph text.');
+    expect(selection).not.toContain('needle');
+    expect(selection).not.toContain('Aa');
+  });
+
+  test('does not select drop zone text when no file is open', async ({ mainWindow }) => {
+    await mainWindow.waitForSelector('.drop-zone', { timeout: 5000 });
+
+    const selection = await mainWindow.evaluate(() => {
+      window.getSelection()?.removeAllRanges();
+      document.execCommand('selectAll');
+      return window.getSelection()?.toString() ?? '';
+    });
+
+    expect(selection).not.toContain('Drop Markdown File Here');
+    expect(selection).not.toContain('click Open to browse');
+  });
 });

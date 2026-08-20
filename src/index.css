@@ -235,6 +235,9 @@ body {
   border-radius: 8px;
   margin: 16px;
   transition: background-color 0.2s, border-color 0.2s;
+  /* Chrome is not part of the document: keep it out of Select All / copy */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .drop-zone.drag-over {
@@ -1594,6 +1597,11 @@ button:focus:not(:focus-visible) {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   font-size: 13px;
+  /* Chrome is not part of the document: keep it out of Select All / copy.
+     It lives inside #markdown-viewer, so without this its labels and the
+     search term itself are copied along with the document. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .find-bar-visible {
@@ -1609,6 +1617,10 @@ button:focus:not(:focus-visible) {
   border-radius: 4px;
   font-size: 13px;
   outline: none;
+  /* Re-enable selection the container just turned off, so the search term
+     stays selectable and editable. */
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .find-bar-input:focus {

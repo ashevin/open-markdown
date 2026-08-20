@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Select All no longer picks up app chrome. The toolbar, status bar, find bar and drop zone are excluded, so Cmd+A copies the document and nothing else — including the find bar's own search term, which sits inside the viewer.
 - Mac App Store uploads no longer fail code-signing validation. The `keychain-access-groups` entitlement used the Xcode build variable `$(AppIdentifierPrefix)`, which nothing in this pipeline expands, so the literal text shipped as the group name and did not match the provisioning profile.
 - No blank line between a heading and a table that follows it. Google Docs always writes a newline before an inserted table, which after a heading left a gap on top of the heading's own spacing.
 - Window dragging works again across the whole toolbar. Both toolbar halves span the full width, and their `no-drag` region had covered the bar's own drag region, leaving nowhere to grab the window.
