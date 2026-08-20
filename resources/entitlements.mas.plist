@@ -34,10 +34,17 @@
     <true/>
     <!-- Keychain access group - required for safeStorage to persist its
          Keychain ACL inside the sandbox without prompting on every launch.
-         Used by GoogleAuthService to encrypt Google OAuth tokens at rest. -->
+         Used by GoogleAuthService to encrypt Google OAuth tokens at rest.
+
+         The team prefix is written out in full, as it is for
+         application-identifier and application-groups above.
+         $(AppIdentifierPrefix) is an Xcode build variable, and nothing in this
+         pipeline expands it - electron-osx-sign copies this plist verbatim, so
+         the literal text would ship as the group name and App Store Connect
+         rejects it as not matching the provisioning profile. -->
     <key>keychain-access-groups</key>
     <array>
-        <string>$(AppIdentifierPrefix)com.aralu.markdown-viewer</string>
+        <string>KGRHL55T3R.com.aralu.markdown-viewer</string>
     </array>
 </dict>
 </plist>
