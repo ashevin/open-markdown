@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-20
+
+### Added
+
+- **Google Docs sync** (experimental, off by default): link a markdown file to a Google Doc and push changes to it. Enable under Preferences → Experimental Features.
+- **Comment-preserving sync**: paragraph-level diffing with character-level diffs inside modified paragraphs, so comments anchored to untouched text survive a sync. Unchanged paragraphs, tables and images are skipped entirely.
+- **Sign-in with Google** via OAuth2 with PKCE; tokens are encrypted at rest with the system keychain. Optional custom OAuth credentials for users who prefer their own Google Cloud project.
+- **Tables**, inserted with their inline formatting intact and their column widths matched to the proportions shown in the app.
+- **Mermaid diagrams**, rendered to images and uploaded, each with a link back to mermaid.live for editing.
+- **Code blocks**, shaded and set in Consolas with syntax colours computed locally. Untagged fences have their language detected against a constrained candidate list, and are left plain when detection is not confident.
+- **Google Docs section in Preferences** with sign-out and custom credential settings, shown whenever the feature is enabled or an account is still signed in.
+
+### Fixed
+
+- Window dragging works again across the whole toolbar. Both toolbar halves span the full width, and their `no-drag` region had covered the bar's own drag region, leaving nowhere to grab the window.
+
 ## [1.4.0] - 2026-05-16
 
 ### Added
